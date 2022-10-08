@@ -1,0 +1,9 @@
+rootProject.name = 'workflow'
+
+include ':api'
+include ':util'
+include ':microservices:user-service'
+include ':microservices:task-service'
+include ':microservices:project-service'
+include ':microservices:gateway'
+include ':microservices:eureka-server'

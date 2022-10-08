@@ -1,0 +1,8 @@
+[submodule "s6-its-workflow-frontend"]
+	path = s6-its-workflow-frontend
+	url = ../../I425926/s6-its-workflow-frontend.git
+	branch = main
+[submodule "s6-its-workflow"]
+	path = s6-its-workflow
+	url = ../../I425926/s6-its-workflow.git
+    branch = dev

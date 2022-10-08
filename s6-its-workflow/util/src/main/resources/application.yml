@@ -1,0 +1,6 @@
+#spring:
+#  rabbitmq:
+#    host: workflow-rabbit
+#    port: 5672
+#    username: admin
+#    password: electrify

@@ -1,0 +1,174 @@
+image: docker:19.03.12
+
+include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  PATH_TO_BACKEND: s6-its-workflow/microservices
+  PATH_TO_FRONTEND: s6-its-workflow-frontend
+  IMAGE_OPENJDK_GRADLE: gradle:7.4.1-jdk11
+  DEFAULT_PATH: build/libs
+  GATEWAY: gateway-0.1.jar
+  USER_SERVICE: user-service-0.1.jar
+  PROJECT_SERVICE: project-service-0.1.jar
+  TASK_SERVICE: task-service-0.1.jar
+  CONFIG_SERVER: config-server-0.1.jar
+
+stages:
+  - build
+  - test
+  - package
+
+build_backend:
+  image: $IMAGE_OPENJDK_GRADLE
+  stage: build
+  script:
+    - cd s6-its-workflow
+    - gradle build
+  cache:
+    key: backend-${CI_COMMIT_REF_SLUG}
+    paths:
+      - $PATH_TO_BACKEND/gateway/$DEFAULT_PATH/$GATEWAY
+      - $PATH_TO_BACKEND/user-service/$DEFAULT_PATH/$USER_SERVICE
+      - $PATH_TO_BACKEND/project-service/$DEFAULT_PATH/$PROJECT_SERVICE
+      - $PATH_TO_BACKEND/task-service/$DEFAULT_PATH/$TASK_SERVICE
+      - $PATH_TO_BACKEND/config-server/$DEFAULT_PATH/$CONFIG_SERVER
+
+build_frontend:
+  image: node:16-alpine
+  stage: build
+  script:
+    - cd $PATH_TO_FRONTEND/Workflow-frontend/
+    - npm install
+  cache:
+    key: frontend-${CI_COMMIT_REF_SLUG}
+    paths:
+      - $PATH_TO_FRONTEND/Workflow-frontend/node_modules/
+  except:
+    - tags
+
+e2e_tests:
+  image: docker:19.03.12
+  stage: test
+  script:
+    - echo "Running tests..."
+
+#  variables:
+#    SELENIUM_HOST: chrome
+#    DOCKER_DRIVER: overlay2
+#    DOCKER_TLS_CERTDIR: "/certs"
+#
+#  services:
+#    - docker:19.03.12-dind
+#
+#  cache:
+#    - key: ${CI_COMMIT_REF_SLUG}
+#      paths:
+#        - $PATH_TO_BACKEND/gateway/$DEFAULT_PATH/$GATEWAY
+#        - $PATH_TO_BACKEND/user-service/$DEFAULT_PATH/$USER_SERVICE
+#        - $PATH_TO_BACKEND/project-service/$DEFAULT_PATH/$PROJECT_SERVICE
+#        - $PATH_TO_BACKEND/task-service/$DEFAULT_PATH/$TASK_SERVICE
+#        - $PATH_TO_BACKEND/config-server/$DEFAULT_PATH/$CONFIG_SERVER
+#
+#    - key: frontend-${CI_COMMIT_REF_SLUG}
+#      paths:
+#        - $PATH_TO_FRONTEND/Workflow-frontend/node_modules/
+#
+#  before_script:
+#    - apk add --no-cache docker-compose
+#
+#  script:
+#    - docker-compose up --build -d
+#    - docker ps
+#    - docker-compose exec workflow-frontend sh -c "npm run test-selenium"
+#    - docker-compose down
+
+owasp_dependency_check:
+  image:
+    name: registry.gitlab.com/gitlab-ci-utils/docker-dependency-check:latest
+    entrypoint: [""]
+  stage: test
+  script:
+    # Job will scan the project root folder and fail if any vulnerabilities with CVSS > 0 are found
+    - /usr/share/dependency-check/bin/dependency-check.sh --scan ./**/*.jar --format ALL --project "$CI_PROJECT_NAME" --failOnCVSS 0
+    # Dependency Check will only fail the job based on CVSS scores, and in some cases vulnerabilities do not
+    # have CVSS scores (e.g. those from NPM audit), so they don't cause failure.  To fail for any vulnerabilities
+    # grep the resulting report for any "vulnerabilities" sections and exit if any are found (count > 0).
+    - if [ $(grep -c "vulnerabilities" dependency-check-report.json) -gt 0 ]; then exit 2; fi
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      # Save the HTML and JSON report artifacts
+      - "./dependency-check-report.html"
+      - "./dependency-check-report.json"
+
+secret_detection:
+  variables:
+    SECRET_DETECTION_HISTORIC_SCAN: "true"
+
+sonarqube-check:
+  image: $IMAGE_OPENJDK_GRADLE
+  stage: test
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: 0
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - cd s6-its-workflow
+    - gradle sonarqube
+  allow_failure: true
+
+package_backend:
+  image:
+    name: docker:19.03.12
+  stage: package
+  cache:
+    key: backend-${CI_COMMIT_REF_SLUG}
+    policy: pull
+    paths:
+      - $PATH_TO_BACKEND/gateway/$DEFAULT_PATH/$GATEWAY
+      - $PATH_TO_BACKEND/user-service/$DEFAULT_PATH/$USER_SERVICE
+      - $PATH_TO_BACKEND/project-service/$DEFAULT_PATH/$PROJECT_SERVICE
+      - $PATH_TO_BACKEND/task-service/$DEFAULT_PATH/$TASK_SERVICE
+      - $PATH_TO_BACKEND/config-server/$DEFAULT_PATH/$CONFIG_SERVER
+  services:
+    - name: docker:19.03.12-dind
+
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - cd $PATH_TO_BACKEND
+    - |+
+      for D in *; do
+        (cd "$D"
+        docker build --pull -t "$CI_REGISTRY_IMAGE$D" .
+        docker push "$CI_REGISTRY_IMAGE$D")
+      done
+
+package_frontend:
+  image: docker:19.03.12
+  stage: package
+  cache:
+    key: frontend-${CI_COMMIT_REF_SLUG}
+    policy: pull
+    paths:
+      - $PATH_TO_FRONTEND/
+  services:
+    - docker:19.03.12-dind
+  script:
+    - cd $PATH_TO_FRONTEND/
+
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+
+    - docker build --pull -t "$CI_REGISTRY_IMAGE"web-app-frontend:dev .
+
+    - docker push "$CI_REGISTRY_IMAGE"web-app-frontend

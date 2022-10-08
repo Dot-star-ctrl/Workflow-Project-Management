@@ -1,0 +1,30 @@
+plugins {
+	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id 'java'
+}
+
+group = 'electrify'
+version = '0.1'
+sourceCompatibility = '11'
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	springBootVersion = '2.6.4'
+}
+
+dependencies {
+	implementation platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
+
+	implementation project(':api')
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation "org.springframework.amqp:spring-rabbit:2.4.3"
+    implementation "org.springframework:spring-messaging:4.2.4.RELEASE"
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+test {
+	useJUnitPlatform()
+}

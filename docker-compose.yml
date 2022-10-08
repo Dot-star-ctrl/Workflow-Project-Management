@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+
+  workflow-frontend:
+    build:
+      context: ./s6-its-workflow-frontend/
+      dockerfile: Dockerfile
+    command: npm run dev
+    ports:
+      - "3000:3000"
+  #    volumes:
+  #      - ./s6-its-workflow-frontend/Workflow-frontend:/app/Workflow-frontend
+
+  chrome:
+    image: selenium/standalone-chrome:latest
+    hostname: chrome
+    privileged: true
+    shm_size: 2g
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    hostname: workflow-rabbit
+    container_name: rabbitmq
+    volumes:
+      - ./rabbitmq/etc/definitions.json:/etc/rabbitmq/definitions.json
+      - ./rabbitmq/etc/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./rabbitmq/data:/var/lib/rabbitmq/mnesia/rabbit@my-rabbit
+      - ./rabbitmq/logs:/var/log/rabbitmq/log
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  user-service:
+    image: workflow/user-service
+    build:
+      context: s6-its-workflow/microservices/user-service
+    mem_limit: 512m
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  project-service:
+    image: workflow/project-service
+    build:
+      context: s6-its-workflow/microservices/project-service
+    mem_limit: 512m
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  task-service:
+    image: workflow/task-service
+    build:
+      context: s6-its-workflow/microservices/task-service
+    mem_limit: 512m
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  eureka:
+    image: workflow/eureka-server
+    build:
+      context: s6-its-workflow/microservices/eureka-server
+    mem_limit: 512m
+
+  gateway:
+    image: workflow/gateway
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    build:
+      context: s6-its-workflow/microservices/gateway
+    mem_limit: 512m
+    ports:
+      - "8080:8080"
