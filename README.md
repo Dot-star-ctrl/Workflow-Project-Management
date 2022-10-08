@@ -29,10 +29,6 @@
 
 <h3 align="center">Project Management System</h3>
 
-<p align="center">
-    <a href="https://git.fhict.nl/I425926/s6-its-workflow">View Demo</a>
-</p>
-
 </td></tr></table>
 
 
@@ -69,6 +65,18 @@ The system has three users:
 * Project Managers - manage project activities such as tracking project progress and splitting the project goals into subtasks and assigning them to team members
 
 * Employees (team members) - track their own work and collaborate with team members on projects
+
+<table align="center"><tr><td align="center" width="9999">
+<a align="center">
+    <img src="images/pic_1.png" width="600" height="400">
+    <br><br>
+    <img src="images/pic_2.png" width="600" height="400">
+    <br><br>
+    <img src="images/pic_3.png" width="600" height="400">
+
+</a>
+
+</td></tr></table>
 
 <!-- ABOUT THE PROJECT -->
 ## System Architecture
