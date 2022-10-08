@@ -22,6 +22,8 @@
 <!-- PROJECT LOGO -->
 <br />
 
+This repository contains my semester 6 individual project - Workflow.
+
 <table align="center"><tr><td align="center" width="9999">
 <a align="center" href="https://git.fhict.nl/I425926/s6-its-workflow">
     <img src="images/logo_transparent.png" alt="Logo" width="250" height="250">
